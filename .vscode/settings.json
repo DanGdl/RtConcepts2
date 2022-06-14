@@ -1,0 +1,17 @@
+{
+    "files.associations": {
+        "freertos.h": "c",
+        "stdio.h": "c",
+        "queue.h": "c",
+        "semphr.h": "c",
+        "task.h": "c",
+        "freertosconfig.h": "c",
+        "portable.h": "c",
+        "port.c": "c",
+        "string.h": "c",
+        "city_services.h": "c",
+        "thread_pool.h": "c",
+        "staticallocation.h": "c"
+    },
+    "cmake.configureOnOpen": false
+}

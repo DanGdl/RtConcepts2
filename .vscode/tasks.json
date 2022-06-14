@@ -1,0 +1,44 @@
+{
+	"version": "2.0.0",
+    "tasks": [
+        {
+            "type": "cppbuild",
+			"label": "C/C++: build main.c",
+			"command": "cl.exe",
+            "args": [
+                "/I${workspaceFolder}\\src\\include\\",
+                "/I${workspaceFolder}\\src\\city_services.h",
+                "/I${workspaceFolder}\\src\\thread_pool.h",
+                "/I${RTOS_PATH}\\FreeRTOS\\Source\\include\\",
+                "/I${RTOS_PATH}\\FreeRTOS\\Source\\portable\\MSVC-MingW\\",
+                // "/I${RTOS_PATH}\\FreeRTOS\\Demo\\Common\\include\\", // static
+				"/Zi",
+				"/EHsc",
+				"/nologo",
+				"/Fe:",
+				"${workspaceFolder}\\build\\${fileBasenameNoExtension}.exe",
+                "${workspaceFolder}\\src\\main.c",
+                "${workspaceFolder}\\src\\thread_pool.c",
+				"${RTOS_PATH}\\FreeRTOS\\Source\\tasks.c",
+				"${RTOS_PATH}\\FreeRTOS\\Source\\queue.c",
+				"${RTOS_PATH}\\FreeRTOS\\Source\\timers.c",
+				"${RTOS_PATH}\\FreeRTOS\\Source\\list.c",
+                // "${RTOS_PATH}\\FreeRTOS\\Demo\\Common\\Minimal\\StaticAllocation.c", // static
+                "${RTOS_PATH}\\FreeRTOS\\Source\\portable\\MemMang\\heap_3.c", // dynamic
+				"${RTOS_PATH}\\FreeRTOS\\Source\\portable\\MSVC-MingW\\port.c"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}\\build"
+            },
+            "problemMatcher": [
+               "$msCompile"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+           "detail": "compiler: cl.exe"
+        }
+    ]
+}
+

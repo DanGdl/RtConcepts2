@@ -8,9 +8,10 @@
 #ifndef SRC_CITY_SERVICES_H_
 #define SRC_CITY_SERVICES_H_
 
-#include <task.h>
-#include <queue.h>
-#include <semphr.h>
+#include "FreeRTOS.h"
+#include "task.h"
+#include "queue.h"
+#include "semphr.h"
 
 
 #define TOTAL_SERVICES 3
@@ -36,22 +37,17 @@ const char* names[TOTAL_SERVICES] = {NAME_FIRE_TEAM, NAME_POLICE, NAME_AMBULANCE
 
 const int teams[TOTAL_SERVICES] = {FIRE_TEAM_SIZE, POLICE_SIZE, AMBULANCE_SIZE};
 
-typedef struct request {
+typedef struct Request {
 	int service;
 	int groups;
-} request_t;
+} Request_t;
 
-typedef struct service_attr {
+typedef struct CityServiceAttr {
 	QueueHandle_t queue;
 	SemaphoreHandle_t mutex;
 	SemaphoreHandle_t semaphore;
 	const char* name;
 	TaskHandle_t task;
-} service_attr_t;
-
-typedef struct task_params {
-	SemaphoreHandle_t semaphore;
-	const char* name;
-} task_params_t;
+} CityServiceAttr_t;
 
 #endif /* SRC_CITY_SERVICES_H_ */
