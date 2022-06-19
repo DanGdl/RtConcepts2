@@ -2,15 +2,8 @@
 #include <stdio.h>
 #include <time.h>
 #include <stdlib.h>
-#include <string.h>
-
-#include "FreeRTOS.h"
-#include "task.h"
-#include "queue.h"
-#include "semphr.h"
 
 #include "city_services.h"
-#include "thread_pool.h"
 
 
 TaskHandle_t defaultTaskHandle;
@@ -18,18 +11,16 @@ TaskHandle_t dispatcherHandle;
 QueueHandle_t dispatcherQueueHandle;
 
 CityServiceAttr_t services[TOTAL_SERVICES];
+extern const char* names[TOTAL_SERVICES];
+extern const int teams[TOTAL_SERVICES];
 
 void StartDefaultTask(void *argument);
 void dispatch(void *argument);
 
 void serviceTask(void *argument);
-void teamTask(void *argument);
 
 
 int main(void) {
-	if (pdPASS != initThreadPool()) {
-		return -1;
-	}
 	#if (configSUPPORT_DYNAMIC_ALLOCATION == 1) 
 	{
 		dispatcherQueueHandle = xQueueCreate(16, sizeof(Request_t));
@@ -58,13 +49,7 @@ int main(void) {
 					return -1;
 				}
 
-				services[i].mutex = xSemaphoreCreateMutex();
-				if (services[i].mutex == NULL) {
-					printf("Failed to create mutex for service %s\r\n", names[i]);
-					return -1;
-				}
-
-				services[i].semaphore = xSemaphoreCreateCounting(teams[i], teams[i]);
+				services[i].semaphore = xSemaphoreCreateCounting(MAX_TEAMS, 0);
 				if (services[i].semaphore == NULL) {
 					printf("Failed to create semaphore for service %s\r\n", names[i]);
 					return -1;
@@ -77,6 +62,9 @@ int main(void) {
 			}
 		}
 
+		if (pdPASS != initThreadPool(&services[0])) {
+			return -1;
+		}
 		vTaskStartScheduler();
 	}
 	#endif
@@ -96,12 +84,10 @@ void StartDefaultTask(void *argument) {
 		sendResult = xQueueSendToBack(dispatcherQueueHandle, &req, 0);
 		if (sendResult == pdPASS) {
 			printf("Generated request for service %s, groups %d\r\n", services[req.service].name, req.groups);
-			// wake up thread
-			vTaskResume(dispatcherHandle);
 		} else {
 			printf("Failed to send request to dispatcher\r\n");
 		}
-		delay = rand() % 10; // not bigger then portMAX_DELAY
+		delay = rand() % 10 + 1; // not bigger then portMAX_DELAY
 		vTaskDelay(pdMS_TO_TICKS(delay * 1000));
 	}
 	vTaskDelete(NULL);
@@ -116,26 +102,15 @@ void dispatch(void *argument) {
 	CityServiceAttr_t serviceData;
 	for (;;) {
 		// try to receive request from queue
-		receiveResult = xQueueReceive(dispatcherQueueHandle, &req, 0);
-		if (receiveResult == pdPASS) {
+		if (xQueueReceive(dispatcherQueueHandle, &req, portMAX_DELAY) == pdPASS) {
 			serviceData = services[req.service];
-			mutexResult = xSemaphoreTake(serviceData.mutex, 0);
-			if (mutexResult == pdPASS) {
-				// put request to queue of specific service
-				while (xQueueSendToBack(serviceData.queue, &req, 0) != pdPASS) {
-					// printf("Request Dispatched to service %s\r\n", services[req.service].name);
-				}
-				xSemaphoreGive(serviceData.mutex);
-				// wake up service thread
-				vTaskResume(serviceData.task);
-			} else {
-				printf("Failed to acquire lock\r\n");
+			// put request to queue of specific service
+			if (xQueueSendToBack(serviceData.queue, &req, 0) != pdPASS) {
+				printf("Request dropped. Service %s\r\n", services[req.service].name);
 			}
 		} else {
-			printf("Failed to get message from queue\r\n");
+			printf("Dispatcher: receiving timeout\r\n");
 		}
-		// wait for new messages in queue
-		vTaskSuspend(dispatcherHandle);
 	}
 	vTaskDelete(NULL);
 }
@@ -143,41 +118,16 @@ void dispatch(void *argument) {
 // task for service
 void serviceTask(void *argument) {
 	CityServiceAttr_t* settings = (CityServiceAttr_t*) argument;
-	ThreadPoolTask_t poolTask = {
-		.task = teamTask,
-		.params = settings
-	};
 	Request_t req;
-	BaseType_t mutexResult;
 	for (;;) {
-		if (xSemaphoreTake(settings -> mutex, 0) == pdPASS) {
-			mutexResult = xQueueReceive(settings -> queue, &req, 0);
-			xSemaphoreGive(settings -> mutex);
-
-			if (mutexResult == pdPASS) {
-				// printf("Service %s handles, group %d\r\n", services[req.service].name, req.groups);
-				for (int i = 0; i < req.groups; i++) {
-					while (pdPASS != submitTask(&poolTask)) {}			
-				}
+		if (xQueueReceive(settings -> queue, &req, portMAX_DELAY) == pdPASS) {
+			// printf("Service %s handles, group %d\r\n", services[req.service].name, req.groups);
+			for (int i = 0; i < req.groups; i++) {
+				xSemaphoreGive(settings -> semaphore);			
 			}
 		} else {
-			printf("Failed to acquire lock\r\n");
+			printf("Service %s receiving timeout\r\n", services[req.service].name);
 		}
-		vTaskSuspend(settings -> task);
 	}
 	vTaskDelete(NULL);
-}
-
-void teamTask(void *argument) {
-	const CityServiceAttr_t* const params = (CityServiceAttr_t*) argument;
-	for (;;) {
-		if (xSemaphoreTake(params -> semaphore, 0) == pdPASS) {
-			int delay = (rand() % 50) + 10;
-			printf("Exec task, Semaphore for service %s count %d, delay %d, task %s\r\n", params -> name, uxSemaphoreGetCount(params -> semaphore), delay, pcTaskGetName(NULL));
-			// printf("Exec task for service %s\n\r", params -> name);
-			vTaskDelay(pdMS_TO_TICKS(delay));
-			xSemaphoreGive(params -> semaphore);
-			break;
-		}
-	}
 }

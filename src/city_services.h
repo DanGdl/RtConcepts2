@@ -33,10 +33,6 @@
 
 #define MAX_TEAMS 5
 
-const char* names[TOTAL_SERVICES] = {NAME_FIRE_TEAM, NAME_POLICE, NAME_AMBULANCE};
-
-const int teams[TOTAL_SERVICES] = {FIRE_TEAM_SIZE, POLICE_SIZE, AMBULANCE_SIZE};
-
 typedef struct Request {
 	int service;
 	int groups;
@@ -44,10 +40,12 @@ typedef struct Request {
 
 typedef struct CityServiceAttr {
 	QueueHandle_t queue;
-	SemaphoreHandle_t mutex;
 	SemaphoreHandle_t semaphore;
 	const char* name;
 	TaskHandle_t task;
 } CityServiceAttr_t;
+
+
+BaseType_t initThreadPool(CityServiceAttr_t* services);
 
 #endif /* SRC_CITY_SERVICES_H_ */
